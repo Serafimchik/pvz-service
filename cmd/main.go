@@ -50,6 +50,11 @@ func main() {
 			r.Use(middleware.RoleMiddleware("employee"))
 			r.Post("/", handlers.AddProductHandler(repo))
 		})
+
+		r.Route("/pvz/{pvzId}", func(r chi.Router) {
+			r.Use(middleware.RoleMiddleware("employee"))
+			r.Post("/delete_last_product", handlers.DeleteLastProductHandler(repo))
+		})
 	})
 
 	log.Println("Starting server on :8080")

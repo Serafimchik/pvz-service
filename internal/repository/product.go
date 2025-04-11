@@ -60,3 +60,53 @@ func (r *Repository) AddProduct(productType, pvzID string) (*Product, error) {
 
 	return newProduct, nil
 }
+
+func (r *Repository) DeleteLastProduct(pvzID string) error {
+	queryBuilder := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+
+	var receptionID string
+	query, args, err := queryBuilder.Select("id").
+		From("receptions").
+		Where(squirrel.Eq{"pvz_id": pvzID, "status": "in_progress"}).
+		OrderBy("date_time DESC").
+		Limit(1).
+		ToSql()
+	if err != nil {
+		return err
+	}
+
+	err = r.DB.QueryRow(context.Background(), query, args...).Scan(&receptionID)
+	if err != nil {
+		return errors.New("no active reception found for this PVZ")
+	}
+
+	var productID string
+	query, args, err = queryBuilder.Select("id").
+		From("products").
+		Where(squirrel.Eq{"reception_id": receptionID}).
+		OrderBy("date_time DESC").
+		Limit(1).
+		ToSql()
+	if err != nil {
+		return err
+	}
+
+	err = r.DB.QueryRow(context.Background(), query, args...).Scan(&productID)
+	if err != nil {
+		return errors.New("no products to delete in the current reception")
+	}
+
+	query, args, err = queryBuilder.Delete("products").
+		Where(squirrel.Eq{"id": productID}).
+		ToSql()
+	if err != nil {
+		return err
+	}
+
+	_, err = r.DB.Exec(context.Background(), query, args...)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
