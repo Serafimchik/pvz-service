@@ -54,6 +54,7 @@ func main() {
 		r.Route("/pvz/{pvzId}", func(r chi.Router) {
 			r.Use(middleware.RoleMiddleware("employee"))
 			r.Post("/delete_last_product", handlers.DeleteLastProductHandler(repo))
+			r.Post("/close_last_reception", handlers.CloseReceptionHandler(repo))
 		})
 	})
 

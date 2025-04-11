@@ -3,10 +3,12 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx"
 )
 
 type Reception struct {
@@ -57,4 +59,45 @@ func (r *Repository) CreateReception(pvzID string) (*Reception, error) {
 	}
 
 	return newReception, nil
+}
+
+func (r *Repository) CloseReception(pvzID string) (*Reception, error) {
+	queryBuilder := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+
+	var reception Reception
+	query, args, err := queryBuilder.Select("id", "date_time", "pvz_id", "status").
+		From("receptions").
+		Where(squirrel.Eq{"pvz_id": pvzID, "status": "in_progress"}).
+		OrderBy("date_time DESC").
+		Limit(1).
+		ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate query for active reception: %w", err)
+	}
+
+	err = r.DB.QueryRow(context.Background(), query, args...).Scan(&reception.ID, &reception.DateTime, &reception.PVZID, &reception.Status)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, errors.New("no active reception found for this PVZ")
+		}
+		return nil, fmt.Errorf("failed to find active reception: %w", err)
+	}
+
+	query, args, err = queryBuilder.Update("receptions").
+		Set("status", "close").
+		Where(squirrel.Eq{"id": reception.ID}).
+		Suffix("RETURNING id, date_time, pvz_id, status").
+		ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate update query: %w", err)
+	}
+
+	err = r.DB.QueryRow(context.Background(), query, args...).Scan(
+		&reception.ID, &reception.DateTime, &reception.PVZID, &reception.Status,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to close reception: %w", err)
+	}
+
+	return &reception, nil
 }
