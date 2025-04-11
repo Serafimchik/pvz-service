@@ -63,7 +63,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func RoleMiddleware(allowedRole string) func(http.Handler) http.Handler {
+func RoleMiddleware(allowedRoles ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			claims, ok := r.Context().Value("claims").(jwt.MapClaims)
@@ -73,8 +73,22 @@ func RoleMiddleware(allowedRole string) func(http.Handler) http.Handler {
 			}
 
 			role, ok := claims["role"].(string)
-			if !ok || role != allowedRole {
-				log.Printf("Access denied for role: %s, required: %s", role, allowedRole)
+			if !ok {
+				log.Println("Role is missing or invalid in claims")
+				http.Error(w, "Forbidden", http.StatusForbidden)
+				return
+			}
+
+			allowed := false
+			for _, allowedRole := range allowedRoles {
+				if role == allowedRole {
+					allowed = true
+					break
+				}
+			}
+
+			if !allowed {
+				log.Printf("Access denied for role: %s, allowed roles: %v", role, allowedRoles)
 				http.Error(w, "Forbidden", http.StatusForbidden)
 				return
 			}

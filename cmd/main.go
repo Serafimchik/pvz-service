@@ -37,8 +37,23 @@ func main() {
 		r.Use(middleware.AuthMiddleware)
 
 		r.Route("/pvz", func(r chi.Router) {
-			r.Use(middleware.RoleMiddleware("moderator"))
+			r.Use(func(next http.Handler) http.Handler {
+				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					allowedRoles := []string{}
+					switch r.Method {
+					case http.MethodPost:
+						allowedRoles = []string{"moderator"}
+					case http.MethodGet:
+						allowedRoles = []string{"employee", "moderator"}
+					default:
+						http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+						return
+					}
+					middleware.RoleMiddleware(allowedRoles...)(next).ServeHTTP(w, r)
+				})
+			})
 			r.Post("/", handlers.CreatePVZHandler(repo))
+			r.Get("/", handlers.GetPVZListHandler(repo))
 		})
 
 		r.Route("/receptions", func(r chi.Router) {
