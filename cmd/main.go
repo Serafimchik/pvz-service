@@ -45,6 +45,11 @@ func main() {
 			r.Use(middleware.RoleMiddleware("employee"))
 			r.Post("/", handlers.CreateReceptionHandler(repo))
 		})
+
+		r.Route("/products", func(r chi.Router) {
+			r.Use(middleware.RoleMiddleware("employee"))
+			r.Post("/", handlers.AddProductHandler(repo))
+		})
 	})
 
 	log.Println("Starting server on :8080")
