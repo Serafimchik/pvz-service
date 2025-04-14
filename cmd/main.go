@@ -21,7 +21,9 @@ func main() {
 		DBName:   "pvz",
 		SSLMode:  "disable",
 	}
-	db := config.NewDBConnection(dbConfig)
+	poolCreator := &config.RealPoolCreator{}
+
+	db := config.NewDBConnection(dbConfig, poolCreator)
 
 	repo := repository.NewRepository(db)
 
@@ -29,12 +31,14 @@ func main() {
 
 	r.Use(middleware.LoggingMiddleware)
 
-	r.Post("/dummyLogin", handlers.DummyLoginHandler)
+	auth := middleware.NewJWTAuthenticator()
+	r.Post("/dummyLogin", handlers.DummyLoginHandler(auth))
 	r.Post("/register", handlers.RegisterHandler(repo))
-	r.Post("/login", handlers.LoginHandler(repo))
+	r.Post("/login", handlers.LoginHandler(repo, auth))
 
 	r.Group(func(r chi.Router) {
-		r.Use(middleware.AuthMiddleware)
+		auth := middleware.NewJWTAuthenticator()
+		r.Use(middleware.AuthMiddleware(auth))
 
 		r.Route("/pvz", func(r chi.Router) {
 			r.Use(func(next http.Handler) http.Handler {

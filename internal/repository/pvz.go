@@ -4,19 +4,24 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"pvz-service/config"
 	"time"
 
 	"github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type Repository struct {
-	DB *pgxpool.Pool
-}
-
-func NewRepository(db *pgxpool.Pool) *Repository {
-	return &Repository{DB: db}
+type Repository interface {
+	CreatePVZ(city string) (*PVZ, error)
+	GetPVZList(startDate, endDate *time.Time, page, limit int) ([]PVZWithReceptions, error)
+	GetReceptionsForPVZ(pvzID string) ([]ReceptionWithProducts, error)
+	GetProductsForReception(receptionID string) ([]Product, error)
+	CreateReception(pvzID string) (*Reception, error)
+	CloseReception(pvzID string) (*Reception, error)
+	AddProduct(productType, pvzID string) (*Product, error)
+	DeleteLastProduct(pvzID string) error
+	RegisterUser(email, password, role string) (*User, error)
+	LoginUser(email, password string) (*User, error)
 }
 
 type PVZ struct {
@@ -35,7 +40,22 @@ type ReceptionWithProducts struct {
 	Products  []Product `json:"products"`
 }
 
-func (r *Repository) CreatePVZ(city string) (*PVZ, error) {
+type PostgresRepository struct {
+	DB                      config.DBConnection
+	Hasher                  PasswordHasher
+	getProductsForReception func(receptionID string) ([]Product, error)
+	MockGetReceptionsForPVZ func(pvzID string) ([]ReceptionWithProducts, error)
+}
+
+type PasswordHasher interface {
+	GenerateFromPassword(password []byte, cost int) ([]byte, error)
+}
+
+func NewRepository(db config.DBConnection) Repository {
+	return &PostgresRepository{DB: db}
+}
+
+func (r *PostgresRepository) CreatePVZ(city string) (*PVZ, error) {
 	newPVZ := &PVZ{
 		ID:               uuid.New().String(),
 		RegistrationDate: time.Now(),
@@ -50,18 +70,18 @@ func (r *Repository) CreatePVZ(city string) (*PVZ, error) {
 		Suffix("RETURNING id, registration_date, city").
 		ToSql()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to generate SQL query: %w", err)
 	}
 
 	err = r.DB.QueryRow(context.Background(), query, args...).Scan(&newPVZ.ID, &newPVZ.RegistrationDate, &newPVZ.City)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to execute query: %w", err)
 	}
 
 	return newPVZ, nil
 }
 
-func (r *Repository) GetPVZList(startDate, endDate *time.Time, page, limit int) ([]PVZWithReceptions, error) {
+func (r *PostgresRepository) GetPVZList(startDate, endDate *time.Time, page, limit int) ([]PVZWithReceptions, error) {
 	queryBuilder := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
 
 	query := queryBuilder.Select("DISTINCT pvz.id", "pvz.registration_date", "pvz.city").
@@ -102,8 +122,6 @@ func (r *Repository) GetPVZList(startDate, endDate *time.Time, page, limit int) 
 			return nil, fmt.Errorf("failed to scan PVZ data: %w", err)
 		}
 
-		log.Printf("Loading receptions for PVZ ID: %s", pvz.PVZ.ID)
-
 		pvz.Receptions, err = r.GetReceptionsForPVZ(pvz.PVZ.ID)
 		if err != nil {
 			log.Printf("Failed to load receptions for PVZ ID %s: %v", pvz.PVZ.ID, err)
@@ -117,7 +135,7 @@ func (r *Repository) GetPVZList(startDate, endDate *time.Time, page, limit int) 
 	return pvzList, nil
 }
 
-func (r *Repository) GetReceptionsForPVZ(pvzID string) ([]ReceptionWithProducts, error) {
+func (r *PostgresRepository) GetReceptionsForPVZ(pvzID string) ([]ReceptionWithProducts, error) {
 	queryBuilder := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
 
 	query, args, err := queryBuilder.Select("id", "date_time", "pvz_id", "status").
@@ -153,7 +171,7 @@ func (r *Repository) GetReceptionsForPVZ(pvzID string) ([]ReceptionWithProducts,
 	return receptions, nil
 }
 
-func (r *Repository) GetProductsForReception(receptionID string) ([]Product, error) {
+func (r *PostgresRepository) GetProductsForReception(receptionID string) ([]Product, error) {
 	queryBuilder := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
 
 	query, args, err := queryBuilder.Select("id", "date_time", "type", "reception_id").

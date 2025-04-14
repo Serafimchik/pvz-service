@@ -9,9 +9,8 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func CreateReceptionHandler(repo *repository.Repository) http.HandlerFunc {
+func CreateReceptionHandler(repo repository.Repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
 		var requestBody struct {
 			PVZID string `json:"pvzId"`
 		}
@@ -32,7 +31,7 @@ func CreateReceptionHandler(repo *repository.Repository) http.HandlerFunc {
 	}
 }
 
-func CloseReceptionHandler(repo *repository.Repository) http.HandlerFunc {
+func CloseReceptionHandler(repo repository.Repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pvzID := chi.URLParam(r, "pvzId")
 		if pvzID == "" {

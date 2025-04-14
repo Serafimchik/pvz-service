@@ -1,0 +1,1273 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>cmd: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">pvz-service/cmd/main.go (0.0%)</option>
+				
+				<option value="file1">pvz-service/config/db.go (80.0%)</option>
+				
+				<option value="file2">pvz-service/internal/handlers/auth.go (65.0%)</option>
+				
+				<option value="file3">pvz-service/internal/handlers/product.go (76.9%)</option>
+				
+				<option value="file4">pvz-service/internal/handlers/pvz.go (77.8%)</option>
+				
+				<option value="file5">pvz-service/internal/handlers/reception.go (75.0%)</option>
+				
+				<option value="file6">pvz-service/internal/middleware/auth.go (79.2%)</option>
+				
+				<option value="file7">pvz-service/internal/repository/product.go (78.9%)</option>
+				
+				<option value="file8">pvz-service/internal/repository/pvz.go (39.2%)</option>
+				
+				<option value="file9">pvz-service/internal/repository/reception.go (39.4%)</option>
+				
+				<option value="file10">pvz-service/internal/repository/user.go (70.3%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package main
+
+import (
+        "log"
+        "net/http"
+
+        "pvz-service/config"
+        "pvz-service/internal/handlers"
+        "pvz-service/internal/middleware"
+        "pvz-service/internal/repository"
+
+        "github.com/go-chi/chi/v5"
+)
+
+func main() <span class="cov0" title="0">{
+        dbConfig := config.DBConfig{
+                Host:     "localhost",
+                Port:     5432,
+                User:     "user",
+                Password: "password",
+                DBName:   "pvz",
+                SSLMode:  "disable",
+        }
+        poolCreator := &amp;config.RealPoolCreator{}
+
+        db := config.NewDBConnection(dbConfig, poolCreator)
+
+        repo := repository.NewRepository(db)
+
+        r := chi.NewRouter()
+
+        r.Use(middleware.LoggingMiddleware)
+
+        auth := middleware.NewJWTAuthenticator()
+        r.Post("/dummyLogin", handlers.DummyLoginHandler(auth))
+        r.Post("/register", handlers.RegisterHandler(repo))
+        r.Post("/login", handlers.LoginHandler(repo, auth))
+
+        r.Group(func(r chi.Router) </span><span class="cov0" title="0">{
+                auth := middleware.NewJWTAuthenticator()
+                r.Use(middleware.AuthMiddleware(auth))
+
+                r.Route("/pvz", func(r chi.Router) </span><span class="cov0" title="0">{
+                        r.Use(func(next http.Handler) http.Handler </span><span class="cov0" title="0">{
+                                return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+                                        allowedRoles := []string{}
+                                        switch r.Method </span>{
+                                        case http.MethodPost:<span class="cov0" title="0">
+                                                allowedRoles = []string{"moderator"}</span>
+                                        case http.MethodGet:<span class="cov0" title="0">
+                                                allowedRoles = []string{"employee", "moderator"}</span>
+                                        default:<span class="cov0" title="0">
+                                                http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+                                                return</span>
+                                        }
+                                        <span class="cov0" title="0">middleware.RoleMiddleware(allowedRoles...)(next).ServeHTTP(w, r)</span>
+                                })
+                        })
+                        <span class="cov0" title="0">r.Post("/", handlers.CreatePVZHandler(repo))
+                        r.Get("/", handlers.GetPVZListHandler(repo))</span>
+                })
+
+                <span class="cov0" title="0">r.Route("/receptions", func(r chi.Router) </span><span class="cov0" title="0">{
+                        r.Use(middleware.RoleMiddleware("employee"))
+                        r.Post("/", handlers.CreateReceptionHandler(repo))
+                }</span>)
+
+                <span class="cov0" title="0">r.Route("/products", func(r chi.Router) </span><span class="cov0" title="0">{
+                        r.Use(middleware.RoleMiddleware("employee"))
+                        r.Post("/", handlers.AddProductHandler(repo))
+                }</span>)
+
+                <span class="cov0" title="0">r.Route("/pvz/{pvzId}", func(r chi.Router) </span><span class="cov0" title="0">{
+                        r.Use(middleware.RoleMiddleware("employee"))
+                        r.Post("/delete_last_product", handlers.DeleteLastProductHandler(repo))
+                        r.Post("/close_last_reception", handlers.CloseReceptionHandler(repo))
+                }</span>)
+        })
+
+        <span class="cov0" title="0">log.Println("Starting server on :8080")
+        if err := http.ListenAndServe(":8080", r); err != nil </span><span class="cov0" title="0">{
+                log.Fatal(err)
+        }</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package config
+
+import (
+        "context"
+        "fmt"
+        "log"
+        "time"
+
+        "github.com/jackc/pgx/v5"
+        "github.com/jackc/pgx/v5/pgconn"
+        "github.com/jackc/pgx/v5/pgxpool"
+)
+
+type DBConfig struct {
+        Host     string
+        Port     int
+        User     string
+        Password string
+        DBName   string
+        SSLMode  string
+}
+type PoolCreator interface {
+        NewPool(config *pgxpool.Config) (DBConnection, error)
+}
+
+type DBConnection interface {
+        QueryRow(ctx context.Context, sql string, args ...interface{}) Row
+        Query(ctx context.Context, sql string, args ...interface{}) (Rows, error)
+        Exec(ctx context.Context, sql string, arguments ...interface{}) (CommandTag, error)
+}
+
+type PgxRowsWrapper struct {
+        rows pgx.Rows
+}
+
+func (w *PgxRowsWrapper) Close() error <span class="cov8" title="1">{
+        w.rows.Close()
+        return nil
+}</span>
+
+func (w *PgxRowsWrapper) Next() bool <span class="cov8" title="1">{
+        return w.rows.Next()
+}</span>
+
+func (w *PgxRowsWrapper) Scan(dest ...interface{}) error <span class="cov8" title="1">{
+        return w.rows.Scan(dest...)
+}</span>
+func (p *PgxRowsWrapper) Err() error <span class="cov0" title="0">{
+        return p.rows.Err()
+}</span>
+
+type Row interface {
+        Scan(dest ...interface{}) error
+}
+
+type Rows interface {
+        Close() error
+        Next() bool
+        Scan(dest ...interface{}) error
+        Err() error
+}
+
+type CommandTag interface {
+        RowsAffected() int64
+}
+
+type PoolAdapter struct {
+        pool PoolInterface
+}
+type PoolInterface interface {
+        QueryRow(ctx context.Context, sql string, args ...interface{}) pgx.Row
+        Query(ctx context.Context, sql string, args ...interface{}) (pgx.Rows, error)
+        Exec(ctx context.Context, sql string, arguments ...interface{}) (pgconn.CommandTag, error)
+        Close()
+}
+
+func (p *PoolAdapter) QueryRow(ctx context.Context, sql string, args ...interface{}) Row <span class="cov8" title="1">{
+        return p.pool.QueryRow(ctx, sql, args...)
+}</span>
+
+func (p *PoolAdapter) Query(ctx context.Context, sql string, args ...interface{}) (Rows, error) <span class="cov8" title="1">{
+        pgxRows, err := p.pool.Query(ctx, sql, args...)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">return &amp;PgxRowsWrapper{rows: pgxRows}, nil</span>
+}
+
+func (p *PoolAdapter) Exec(ctx context.Context, sql string, arguments ...interface{}) (CommandTag, error) <span class="cov8" title="1">{
+        tag, err := p.pool.Exec(ctx, sql, arguments...)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">return tag, nil</span>
+}
+
+func NewDBConnection(config DBConfig, poolCreator PoolCreator) DBConnection <span class="cov8" title="1">{
+        connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+                config.Host, config.Port, config.User, config.Password, config.DBName, config.SSLMode)
+
+        poolConfig, err := pgxpool.ParseConfig(connStr)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("Unable to parse config: %v", err)
+        }</span>
+
+        <span class="cov8" title="1">poolConfig.MaxConns = 20
+        poolConfig.MinConns = 5
+        poolConfig.MaxConnLifetime = time.Hour
+        poolConfig.MaxConnIdleTime = 30 * time.Minute
+
+        dbConn, err := poolCreator.NewPool(poolConfig)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("Unable to create connection pool: %v", err)
+        }</span>
+
+        <span class="cov8" title="1">log.Println("Successfully connected to the database!")
+        return dbConn</span>
+}
+
+type RealPoolCreator struct{}
+
+func (r *RealPoolCreator) NewPool(config *pgxpool.Config) (DBConnection, error) <span class="cov8" title="1">{
+        pool, err := pgxpool.NewWithConfig(context.Background(), config)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+        defer cancel()
+
+        if err := pool.Ping(ctx); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">return &amp;PoolAdapter{pool: pool}, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package handlers
+
+import (
+        "encoding/json"
+        "net/http"
+
+        "pvz-service/internal/middleware"
+        "pvz-service/internal/repository"
+)
+
+func DummyLoginHandler(auth middleware.Authenticator) http.HandlerFunc <span class="cov8" title="1">{
+        return func(w http.ResponseWriter, r *http.Request) </span><span class="cov8" title="1">{
+                var input struct {
+                        Role string `json:"role"`
+                }
+                if err := json.NewDecoder(r.Body).Decode(&amp;input); err != nil </span><span class="cov0" title="0">{
+                        http.Error(w, "Invalid request", http.StatusBadRequest)
+                        return
+                }</span>
+
+                <span class="cov8" title="1">token, err := auth.GenerateJWT(input.Role)
+                if err != nil </span><span class="cov0" title="0">{
+                        http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+                        return
+                }</span>
+
+                <span class="cov8" title="1">w.Header().Set("Content-Type", "application/json")
+                w.WriteHeader(http.StatusOK)
+                json.NewEncoder(w).Encode(map[string]string{"token": token})</span>
+        }
+}
+
+func LoginHandler(repo repository.Repository, auth middleware.Authenticator) http.HandlerFunc <span class="cov8" title="1">{
+        return func(w http.ResponseWriter, r *http.Request) </span><span class="cov8" title="1">{
+                var input struct {
+                        Email    string `json:"email"`
+                        Password string `json:"password"`
+                }
+                if err := json.NewDecoder(r.Body).Decode(&amp;input); err != nil </span><span class="cov0" title="0">{
+                        http.Error(w, "Invalid request", http.StatusBadRequest)
+                        return
+                }</span>
+
+                <span class="cov8" title="1">user, err := repo.LoginUser(input.Email, input.Password)
+                if err != nil </span><span class="cov0" title="0">{
+                        http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+                        return
+                }</span>
+
+                <span class="cov8" title="1">token, err := auth.GenerateJWT(user.Role)
+                if err != nil </span><span class="cov0" title="0">{
+                        http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+                        return
+                }</span>
+
+                <span class="cov8" title="1">w.Header().Set("Content-Type", "application/json")
+                w.WriteHeader(http.StatusOK)
+                json.NewEncoder(w).Encode(map[string]string{"token": token})</span>
+        }
+}
+
+func RegisterHandler(repo repository.Repository) http.HandlerFunc <span class="cov8" title="1">{
+        return func(w http.ResponseWriter, r *http.Request) </span><span class="cov8" title="1">{
+                var input struct {
+                        Email    string `json:"email"`
+                        Password string `json:"password"`
+                        Role     string `json:"role"`
+                }
+                if err := json.NewDecoder(r.Body).Decode(&amp;input); err != nil </span><span class="cov0" title="0">{
+                        http.Error(w, "Invalid request", http.StatusBadRequest)
+                        return
+                }</span>
+
+                <span class="cov8" title="1">user, err := repo.RegisterUser(input.Email, input.Password, input.Role)
+                if err != nil </span><span class="cov0" title="0">{
+                        http.Error(w, err.Error(), http.StatusBadRequest)
+                        return
+                }</span>
+
+                <span class="cov8" title="1">w.Header().Set("Content-Type", "application/json")
+                w.WriteHeader(http.StatusCreated)
+                json.NewEncoder(w).Encode(user)</span>
+        }
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package handlers
+
+import (
+        "encoding/json"
+        "net/http"
+
+        "pvz-service/internal/repository"
+
+        "github.com/go-chi/chi/v5"
+)
+
+func AddProductHandler(repo repository.Repository) http.HandlerFunc <span class="cov8" title="1">{
+        return func(w http.ResponseWriter, r *http.Request) </span><span class="cov8" title="1">{
+                var requestBody struct {
+                        Type  string `json:"type"`
+                        PVZID string `json:"pvzId"`
+                }
+                if err := json.NewDecoder(r.Body).Decode(&amp;requestBody); err != nil </span><span class="cov0" title="0">{
+                        http.Error(w, "Invalid request body", http.StatusBadRequest)
+                        return
+                }</span>
+
+                <span class="cov8" title="1">validTypes := map[string]bool{"электроника": true, "одежда": true, "обувь": true}
+                if !validTypes[requestBody.Type] </span><span class="cov8" title="1">{
+                        http.Error(w, "Invalid product type", http.StatusBadRequest)
+                        return
+                }</span>
+
+                <span class="cov8" title="1">product, err := repo.AddProduct(requestBody.Type, requestBody.PVZID)
+                if err != nil </span><span class="cov0" title="0">{
+                        http.Error(w, err.Error(), http.StatusBadRequest)
+                        return
+                }</span>
+
+                <span class="cov8" title="1">w.Header().Set("Content-Type", "application/json")
+                w.WriteHeader(http.StatusCreated)
+                json.NewEncoder(w).Encode(product)</span>
+        }
+}
+
+func DeleteLastProductHandler(repo repository.Repository) http.HandlerFunc <span class="cov8" title="1">{
+        return func(w http.ResponseWriter, r *http.Request) </span><span class="cov8" title="1">{
+                pvzID := chi.URLParam(r, "pvzId")
+                if pvzID == "" </span><span class="cov8" title="1">{
+                        http.Error(w, "Missing pvzId in path", http.StatusBadRequest)
+                        return
+                }</span>
+
+                <span class="cov8" title="1">err := repo.DeleteLastProduct(pvzID)
+                if err != nil </span><span class="cov0" title="0">{
+                        http.Error(w, err.Error(), http.StatusBadRequest)
+                        return
+                }</span>
+
+                <span class="cov8" title="1">w.WriteHeader(http.StatusOK)</span>
+        }
+}
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package handlers
+
+import (
+        "encoding/json"
+        "net/http"
+        "strconv"
+        "time"
+
+        "pvz-service/internal/repository"
+)
+
+func CreatePVZHandler(repo repository.Repository) http.HandlerFunc <span class="cov8" title="1">{
+        return func(w http.ResponseWriter, r *http.Request) </span><span class="cov8" title="1">{
+                var pvz repository.PVZ
+                if err := json.NewDecoder(r.Body).Decode(&amp;pvz); err != nil </span><span class="cov0" title="0">{
+                        http.Error(w, "Invalid request body", http.StatusBadRequest)
+                        return
+                }</span>
+
+                <span class="cov8" title="1">validCities := map[string]bool{"Москва": true, "Санкт-Петербург": true, "Казань": true}
+                if !validCities[pvz.City] </span><span class="cov8" title="1">{
+                        http.Error(w, "Invalid city", http.StatusBadRequest)
+                        return
+                }</span>
+
+                <span class="cov8" title="1">createdPVZ, err := repo.CreatePVZ(pvz.City)
+                if err != nil </span><span class="cov0" title="0">{
+                        http.Error(w, "Failed to create PVZ", http.StatusInternalServerError)
+                        return
+                }</span>
+
+                <span class="cov8" title="1">w.Header().Set("Content-Type", "application/json")
+                w.WriteHeader(http.StatusCreated)
+                json.NewEncoder(w).Encode(createdPVZ)</span>
+        }
+}
+
+func GetPVZListHandler(repo repository.Repository) http.HandlerFunc <span class="cov8" title="1">{
+        return func(w http.ResponseWriter, r *http.Request) </span><span class="cov8" title="1">{
+                page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+                if page &lt; 1 </span><span class="cov0" title="0">{
+                        page = 1
+                }</span>
+                <span class="cov8" title="1">limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+                if limit &lt; 1 || limit &gt; 30 </span><span class="cov0" title="0">{
+                        limit = 10
+                }</span>
+
+                <span class="cov8" title="1">startDateStr := r.URL.Query().Get("startDate")
+                endDateStr := r.URL.Query().Get("endDate")
+                var startDate, endDate *time.Time
+
+                if startDateStr != "" </span><span class="cov8" title="1">{
+                        parsedStartDate, err := time.Parse(time.RFC3339, startDateStr)
+                        if err != nil </span><span class="cov8" title="1">{
+                                http.Error(w, "Invalid startDate format", http.StatusBadRequest)
+                                return
+                        }</span>
+                        <span class="cov8" title="1">startDate = &amp;parsedStartDate</span>
+                }
+
+                <span class="cov8" title="1">if endDateStr != "" </span><span class="cov8" title="1">{
+                        parsedEndDate, err := time.Parse(time.RFC3339, endDateStr)
+                        if err != nil </span><span class="cov0" title="0">{
+                                http.Error(w, "Invalid endDate format", http.StatusBadRequest)
+                                return
+                        }</span>
+                        <span class="cov8" title="1">endDate = &amp;parsedEndDate</span>
+                }
+
+                <span class="cov8" title="1">pvzList, err := repo.GetPVZList(startDate, endDate, page, limit)
+                if err != nil </span><span class="cov0" title="0">{
+                        http.Error(w, err.Error(), http.StatusInternalServerError)
+                        return
+                }</span>
+
+                <span class="cov8" title="1">w.Header().Set("Content-Type", "application/json")
+                w.WriteHeader(http.StatusOK)
+                json.NewEncoder(w).Encode(pvzList)</span>
+        }
+}
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package handlers
+
+import (
+        "encoding/json"
+        "net/http"
+
+        "pvz-service/internal/repository"
+
+        "github.com/go-chi/chi/v5"
+)
+
+func CreateReceptionHandler(repo repository.Repository) http.HandlerFunc <span class="cov8" title="1">{
+        return func(w http.ResponseWriter, r *http.Request) </span><span class="cov8" title="1">{
+                var requestBody struct {
+                        PVZID string `json:"pvzId"`
+                }
+                if err := json.NewDecoder(r.Body).Decode(&amp;requestBody); err != nil </span><span class="cov0" title="0">{
+                        http.Error(w, "Invalid request body", http.StatusBadRequest)
+                        return
+                }</span>
+
+                <span class="cov8" title="1">reception, err := repo.CreateReception(requestBody.PVZID)
+                if err != nil </span><span class="cov0" title="0">{
+                        http.Error(w, err.Error(), http.StatusBadRequest)
+                        return
+                }</span>
+
+                <span class="cov8" title="1">w.Header().Set("Content-Type", "application/json")
+                w.WriteHeader(http.StatusCreated)
+                json.NewEncoder(w).Encode(reception)</span>
+        }
+}
+
+func CloseReceptionHandler(repo repository.Repository) http.HandlerFunc <span class="cov8" title="1">{
+        return func(w http.ResponseWriter, r *http.Request) </span><span class="cov8" title="1">{
+                pvzID := chi.URLParam(r, "pvzId")
+                if pvzID == "" </span><span class="cov8" title="1">{
+                        http.Error(w, "Missing pvzId in path", http.StatusBadRequest)
+                        return
+                }</span>
+
+                <span class="cov8" title="1">reception, err := repo.CloseReception(pvzID)
+                if err != nil </span><span class="cov0" title="0">{
+                        http.Error(w, err.Error(), http.StatusBadRequest)
+                        return
+                }</span>
+
+                <span class="cov8" title="1">w.Header().Set("Content-Type", "application/json")
+                w.WriteHeader(http.StatusOK)
+                json.NewEncoder(w).Encode(reception)</span>
+        }
+}
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package middleware
+
+import (
+        "context"
+        "fmt"
+        "log"
+        "net/http"
+        "strings"
+        "time"
+
+        "github.com/golang-jwt/jwt/v5"
+)
+
+type Authenticator interface {
+        GenerateJWT(role string) (string, error)
+        ParseToken(tokenString string) (map[string]interface{}, error)
+}
+
+type contextKey string
+
+const claimsKey contextKey = "claims"
+
+func AuthMiddleware(auth Authenticator) func(http.Handler) http.Handler <span class="cov8" title="1">{
+        return func(next http.Handler) http.Handler </span><span class="cov8" title="1">{
+                return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov8" title="1">{
+                        tokenString := r.Header.Get("Authorization")
+                        if tokenString == "" </span><span class="cov8" title="1">{
+                                http.Error(w, "Missing Authorization header", http.StatusUnauthorized)
+                                return
+                        }</span>
+
+                        <span class="cov8" title="1">tokenString = strings.TrimPrefix(tokenString, "Bearer ")
+                        if tokenString == "" </span><span class="cov0" title="0">{
+                                http.Error(w, "Invalid Authorization header format", http.StatusUnauthorized)
+                                return
+                        }</span>
+
+                        <span class="cov8" title="1">claims, err := auth.ParseToken(tokenString)
+                        if err != nil </span><span class="cov0" title="0">{
+                                http.Error(w, "Invalid token", http.StatusUnauthorized)
+                                return
+                        }</span>
+
+                        <span class="cov8" title="1">ctx := context.WithValue(r.Context(), claimsKey, claims)
+                        next.ServeHTTP(w, r.WithContext(ctx))</span>
+                })
+        }
+}
+
+type JWTAuthenticator struct{}
+
+func NewJWTAuthenticator() Authenticator <span class="cov8" title="1">{
+        return &amp;JWTAuthenticator{}
+}</span>
+
+func (j *JWTAuthenticator) GenerateJWT(role string) (string, error) <span class="cov8" title="1">{
+        token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+                "role": role,
+                "exp":  time.Now().Add(time.Hour).Unix(),
+        })
+        return token.SignedString([]byte("secret"))
+}</span>
+
+func (j *JWTAuthenticator) ParseToken(tokenString string) (map[string]interface{}, error) <span class="cov8" title="1">{
+        token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) </span><span class="cov8" title="1">{
+                if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+                }</span>
+                <span class="cov8" title="1">return []byte("secret"), nil</span>
+        })
+        <span class="cov8" title="1">if err != nil || !token.Valid </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("invalid token: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">claims, ok := token.Claims.(jwt.MapClaims)
+        if !ok </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("invalid token claims")
+        }</span>
+
+        <span class="cov8" title="1">return claims, nil</span>
+}
+
+func LoggingMiddleware(next http.Handler) http.Handler <span class="cov8" title="1">{
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov8" title="1">{
+                log.Printf("Request: %s %s", r.Method, r.URL.Path)
+                next.ServeHTTP(w, r)
+        }</span>)
+}
+
+func RoleMiddleware(allowedRoles ...string) func(http.Handler) http.Handler <span class="cov8" title="1">{
+        return func(next http.Handler) http.Handler </span><span class="cov8" title="1">{
+                return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov8" title="1">{
+                        claims, ok := r.Context().Value(claimsKey).(map[string]interface{})
+                        if !ok </span><span class="cov0" title="0">{
+                                http.Error(w, "Missing claims in context", http.StatusForbidden)
+                                return
+                        }</span>
+
+                        <span class="cov8" title="1">role, ok := claims["role"].(string)
+                        if !ok </span><span class="cov0" title="0">{
+                                log.Println("Role is missing or invalid in claims")
+                                http.Error(w, "Forbidden", http.StatusForbidden)
+                                return
+                        }</span>
+
+                        <span class="cov8" title="1">allowed := false
+                        for _, allowedRole := range allowedRoles </span><span class="cov8" title="1">{
+                                if role == allowedRole </span><span class="cov8" title="1">{
+                                        allowed = true
+                                        break</span>
+                                }
+                        }
+
+                        <span class="cov8" title="1">if !allowed </span><span class="cov8" title="1">{
+                                log.Printf("Access denied for role: %s, allowed roles: %v", role, allowedRoles)
+                                http.Error(w, "Forbidden", http.StatusForbidden)
+                                return
+                        }</span>
+                        <span class="cov8" title="1">next.ServeHTTP(w, r)</span>
+                })
+        }
+}
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">package repository
+
+import (
+        "context"
+        "errors"
+        "fmt"
+        "time"
+
+        "github.com/Masterminds/squirrel"
+        "github.com/google/uuid"
+)
+
+type Product struct {
+        ID          string    `json:"id"`
+        DateTime    time.Time `json:"dateTime"`
+        Type        string    `json:"type"` // "электроника", "одежда", "обувь"
+        ReceptionID string    `json:"receptionId"`
+}
+
+func (r *PostgresRepository) AddProduct(productType, pvzID string) (*Product, error) <span class="cov8" title="1">{
+        queryBuilder := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+
+        var receptionID string
+        query, args, err := queryBuilder.Select("id").
+                From("receptions").
+                Where(squirrel.Eq{"pvz_id": pvzID, "status": "in_progress"}).
+                OrderBy("date_time DESC").
+                Limit(1).
+                ToSql()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to generate query for active reception: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">err = r.DB.QueryRow(context.Background(), query, args...).Scan(&amp;receptionID)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, errors.New("no active reception found for this PVZ")
+        }</span>
+
+        <span class="cov8" title="1">newProduct := &amp;Product{
+                ID:          uuid.New().String(),
+                DateTime:    time.Now(),
+                Type:        productType,
+                ReceptionID: receptionID,
+        }
+
+        query, args, err = queryBuilder.Insert("products").
+                Columns("id", "date_time", "type", "reception_id").
+                Values(newProduct.ID, newProduct.DateTime, newProduct.Type, newProduct.ReceptionID).
+                Suffix("RETURNING id, date_time, type, reception_id").
+                ToSql()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to generate insert query: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">err = r.DB.QueryRow(context.Background(), query, args...).Scan(
+                &amp;newProduct.ID, &amp;newProduct.DateTime, &amp;newProduct.Type, &amp;newProduct.ReceptionID,
+        )
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to add product: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return newProduct, nil</span>
+}
+
+func (r *PostgresRepository) DeleteLastProduct(pvzID string) error <span class="cov8" title="1">{
+        queryBuilder := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+        var receptionID string
+        query, args, err := queryBuilder.Select("id").
+                From("receptions").
+                Where(squirrel.Eq{"pvz_id": pvzID, "status": "in_progress"}).
+                OrderBy("date_time DESC").
+                Limit(1).
+                ToSql()
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to generate query for active reception: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">err = r.DB.QueryRow(context.Background(), query, args...).Scan(&amp;receptionID)
+        if err != nil </span><span class="cov8" title="1">{
+                return errors.New("no active reception found for this PVZ")
+        }</span>
+        <span class="cov8" title="1">var productID string
+        query, args, err = queryBuilder.Select("id").
+                From("products").
+                Where(squirrel.Eq{"reception_id": receptionID}).
+                OrderBy("date_time DESC").
+                Limit(1).
+                ToSql()
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to generate query for last product: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">err = r.DB.QueryRow(context.Background(), query, args...).Scan(&amp;productID)
+        if err != nil </span><span class="cov0" title="0">{
+                return errors.New("no products to delete in the current reception")
+        }</span>
+
+        <span class="cov8" title="1">query, args, err = queryBuilder.Delete("products").
+                Where(squirrel.Eq{"id": productID}).
+                ToSql()
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to generate delete query: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">_, err = r.DB.Exec(context.Background(), query, args...)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to delete product: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file8" style="display: none">package repository
+
+import (
+        "context"
+        "fmt"
+        "log"
+        "pvz-service/config"
+        "time"
+
+        "github.com/Masterminds/squirrel"
+        "github.com/google/uuid"
+)
+
+type Repository interface {
+        CreatePVZ(city string) (*PVZ, error)
+        GetPVZList(startDate, endDate *time.Time, page, limit int) ([]PVZWithReceptions, error)
+        GetReceptionsForPVZ(pvzID string) ([]ReceptionWithProducts, error)
+        GetProductsForReception(receptionID string) ([]Product, error)
+        CreateReception(pvzID string) (*Reception, error)
+        CloseReception(pvzID string) (*Reception, error)
+        AddProduct(productType, pvzID string) (*Product, error)
+        DeleteLastProduct(pvzID string) error
+        RegisterUser(email, password, role string) (*User, error)
+        LoginUser(email, password string) (*User, error)
+}
+
+type PVZ struct {
+        ID               string    `json:"id"`
+        RegistrationDate time.Time `json:"registrationDate"`
+        City             string    `json:"city"`
+}
+
+type PVZWithReceptions struct {
+        PVZ        PVZ                     `json:"pvz"`
+        Receptions []ReceptionWithProducts `json:"receptions"`
+}
+
+type ReceptionWithProducts struct {
+        Reception Reception `json:"reception"`
+        Products  []Product `json:"products"`
+}
+
+type PostgresRepository struct {
+        DB                      config.DBConnection
+        Hasher                  PasswordHasher
+        getProductsForReception func(receptionID string) ([]Product, error)
+        MockGetReceptionsForPVZ func(pvzID string) ([]ReceptionWithProducts, error)
+}
+
+type PasswordHasher interface {
+        GenerateFromPassword(password []byte, cost int) ([]byte, error)
+}
+
+func NewRepository(db config.DBConnection) Repository <span class="cov8" title="1">{
+        return &amp;PostgresRepository{DB: db}
+}</span>
+
+func (r *PostgresRepository) CreatePVZ(city string) (*PVZ, error) <span class="cov0" title="0">{
+        newPVZ := &amp;PVZ{
+                ID:               uuid.New().String(),
+                RegistrationDate: time.Now(),
+                City:             city,
+        }
+
+        queryBuilder := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+
+        query, args, err := queryBuilder.Insert("pvz").
+                Columns("id", "registration_date", "city").
+                Values(newPVZ.ID, newPVZ.RegistrationDate, newPVZ.City).
+                Suffix("RETURNING id, registration_date, city").
+                ToSql()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to generate SQL query: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">err = r.DB.QueryRow(context.Background(), query, args...).Scan(&amp;newPVZ.ID, &amp;newPVZ.RegistrationDate, &amp;newPVZ.City)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to execute query: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return newPVZ, nil</span>
+}
+
+func (r *PostgresRepository) GetPVZList(startDate, endDate *time.Time, page, limit int) ([]PVZWithReceptions, error) <span class="cov0" title="0">{
+        queryBuilder := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+
+        query := queryBuilder.Select("DISTINCT pvz.id", "pvz.registration_date", "pvz.city").
+                From("pvz").
+                LeftJoin("receptions ON pvz.id = receptions.pvz_id").
+                OrderBy("pvz.registration_date DESC")
+
+        if startDate != nil &amp;&amp; endDate != nil </span><span class="cov0" title="0">{
+                query = query.Where(squirrel.And{
+                        squirrel.GtOrEq{"receptions.date_time": startDate},
+                        squirrel.LtOrEq{"receptions.date_time": endDate},
+                })
+        }</span>
+
+        <span class="cov0" title="0">query = query.Offset(uint64((page - 1) * limit)).Limit(uint64(limit))
+
+        sqlQuery, args, err := query.ToSql()
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to generate SQL query: %v", err)
+                return nil, fmt.Errorf("failed to generate query for PVZ list: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">log.Printf("Executing SQL query: %s with args: %v", sqlQuery, args)
+
+        rows, err := r.DB.Query(context.Background(), sqlQuery, args...)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Failed to execute query: %v", err)
+                return nil, fmt.Errorf("failed to fetch PVZ list: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer rows.Close()
+
+        var pvzList []PVZWithReceptions
+        for rows.Next() </span><span class="cov0" title="0">{
+                var pvz PVZWithReceptions
+                err := rows.Scan(&amp;pvz.PVZ.ID, &amp;pvz.PVZ.RegistrationDate, &amp;pvz.PVZ.City)
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Failed to scan PVZ data: %v", err)
+                        return nil, fmt.Errorf("failed to scan PVZ data: %w", err)
+                }</span>
+
+                <span class="cov0" title="0">pvz.Receptions, err = r.GetReceptionsForPVZ(pvz.PVZ.ID)
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Failed to load receptions for PVZ ID %s: %v", pvz.PVZ.ID, err)
+                        return nil, fmt.Errorf("failed to fetch receptions for PVZ: %w", err)
+                }</span>
+
+                <span class="cov0" title="0">pvzList = append(pvzList, pvz)</span>
+        }
+
+        <span class="cov0" title="0">log.Printf("Fetched %d PVZ records", len(pvzList))
+        return pvzList, nil</span>
+}
+
+func (r *PostgresRepository) GetReceptionsForPVZ(pvzID string) ([]ReceptionWithProducts, error) <span class="cov8" title="1">{
+        queryBuilder := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+
+        query, args, err := queryBuilder.Select("id", "date_time", "pvz_id", "status").
+                From("receptions").
+                Where(squirrel.Eq{"pvz_id": pvzID}).
+                ToSql()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to generate query for receptions: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">rows, err := r.DB.Query(context.Background(), query, args...)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to fetch receptions: %w", err)
+        }</span>
+        <span class="cov8" title="1">defer rows.Close()
+
+        var receptions []ReceptionWithProducts
+        for rows.Next() </span><span class="cov8" title="1">{
+                var reception ReceptionWithProducts
+                err := rows.Scan(&amp;reception.Reception.ID, &amp;reception.Reception.DateTime, &amp;reception.Reception.PVZID, &amp;reception.Reception.Status)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to scan reception data: %w", err)
+                }</span>
+
+                <span class="cov8" title="1">reception.Products, err = r.GetProductsForReception(reception.Reception.ID)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to fetch products for reception: %w", err)
+                }</span>
+
+                <span class="cov8" title="1">receptions = append(receptions, reception)</span>
+        }
+
+        <span class="cov8" title="1">return receptions, nil</span>
+}
+
+func (r *PostgresRepository) GetProductsForReception(receptionID string) ([]Product, error) <span class="cov8" title="1">{
+        queryBuilder := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+
+        query, args, err := queryBuilder.Select("id", "date_time", "type", "reception_id").
+                From("products").
+                Where(squirrel.Eq{"reception_id": receptionID}).
+                ToSql()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to generate query for products: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">rows, err := r.DB.Query(context.Background(), query, args...)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to fetch products: %w", err)
+        }</span>
+        <span class="cov8" title="1">defer rows.Close()
+
+        var products []Product
+        for rows.Next() </span><span class="cov8" title="1">{
+                var product Product
+                err := rows.Scan(&amp;product.ID, &amp;product.DateTime, &amp;product.Type, &amp;product.ReceptionID)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to scan product data: %w", err)
+                }</span>
+                <span class="cov8" title="1">products = append(products, product)</span>
+        }
+
+        <span class="cov8" title="1">return products, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file9" style="display: none">package repository
+
+import (
+        "context"
+        "errors"
+        "fmt"
+        "time"
+
+        "github.com/Masterminds/squirrel"
+        "github.com/google/uuid"
+        "github.com/jackc/pgx/v5"
+)
+
+type Reception struct {
+        ID       string    `json:"id"`
+        DateTime time.Time `json:"dateTime"`
+        PVZID    string    `json:"pvzId"`
+        Status   string    `json:"status"` // "in_progress" или "close"
+}
+
+func (r *PostgresRepository) CreateReception(pvzID string) (*Reception, error) <span class="cov8" title="1">{
+        queryBuilder := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+
+        query, args, err := queryBuilder.Select("id", "status").
+                From("receptions").
+                Where(squirrel.Eq{"pvz_id": pvzID, "status": "in_progress"}).
+                ToSql()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to generate query for checking open reception: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">var openReception Reception
+        err = r.DB.QueryRow(context.Background(), query, args...).Scan(&amp;openReception.ID, &amp;openReception.Status)
+        if err == nil </span><span class="cov8" title="1">{
+                return nil, errors.New("there is an open reception for this PVZ")
+        }</span>
+
+        <span class="cov8" title="1">newReception := &amp;Reception{
+                ID:       uuid.New().String(),
+                DateTime: time.Now(),
+                PVZID:    pvzID,
+                Status:   "in_progress",
+        }
+
+        query, args, err = queryBuilder.Insert("receptions").
+                Columns("id", "date_time", "pvz_id", "status").
+                Values(newReception.ID, newReception.DateTime, newReception.PVZID, newReception.Status).
+                Suffix("RETURNING id, date_time, pvz_id, status").
+                ToSql()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to generate insert query: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">err = r.DB.QueryRow(context.Background(), query, args...).Scan(
+                &amp;newReception.ID, &amp;newReception.DateTime, &amp;newReception.PVZID, &amp;newReception.Status,
+        )
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to create reception: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return newReception, nil</span>
+}
+
+func (r *PostgresRepository) CloseReception(pvzID string) (*Reception, error) <span class="cov0" title="0">{
+        queryBuilder := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+
+        var reception Reception
+        query, args, err := queryBuilder.Select("id", "date_time", "pvz_id", "status").
+                From("receptions").
+                Where(squirrel.Eq{"pvz_id": pvzID, "status": "in_progress"}).
+                OrderBy("date_time DESC").
+                Limit(1).
+                ToSql()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to generate query for active reception: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">err = r.DB.QueryRow(context.Background(), query, args...).Scan(&amp;reception.ID, &amp;reception.DateTime, &amp;reception.PVZID, &amp;reception.Status)
+        if err != nil </span><span class="cov0" title="0">{
+                if err == pgx.ErrNoRows </span><span class="cov0" title="0">{
+                        return nil, errors.New("no active reception found for this PVZ")
+                }</span>
+                <span class="cov0" title="0">return nil, fmt.Errorf("failed to find active reception: %w", err)</span>
+        }
+
+        <span class="cov0" title="0">query, args, err = queryBuilder.Update("receptions").
+                Set("status", "close").
+                Where(squirrel.Eq{"id": reception.ID}).
+                Suffix("RETURNING id, date_time, pvz_id, status").
+                ToSql()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to generate update query: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">err = r.DB.QueryRow(context.Background(), query, args...).Scan(
+                &amp;reception.ID, &amp;reception.DateTime, &amp;reception.PVZID, &amp;reception.Status,
+        )
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to close reception: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;reception, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file10" style="display: none">package repository
+
+import (
+        "context"
+        "errors"
+        "log"
+
+        "github.com/Masterminds/squirrel"
+        "github.com/google/uuid"
+        "github.com/jackc/pgx/v5"
+        "golang.org/x/crypto/bcrypt"
+)
+
+type User struct {
+        ID       string `json:"id"`
+        Email    string `json:"email"`
+        Password string `json:"password"`
+        Role     string `json:"role"`
+}
+
+type BcryptHasher struct{}
+
+func (b *BcryptHasher) GenerateFromPassword(password []byte, cost int) ([]byte, error) <span class="cov0" title="0">{
+        return bcrypt.GenerateFromPassword(password, cost)
+}</span>
+
+func (r *PostgresRepository) RegisterUser(email, password, role string) (*User, error) <span class="cov8" title="1">{
+        if role != "employee" &amp;&amp; role != "moderator" </span><span class="cov8" title="1">{
+                return nil, errors.New("invalid role")
+        }</span>
+
+        <span class="cov8" title="1">hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Error hashing password: %v", err)
+                return nil, errors.New("failed to hash password")
+        }</span>
+
+        <span class="cov8" title="1">newUser := &amp;User{
+                ID:       uuid.New().String(),
+                Email:    email,
+                Password: string(hashedPassword),
+                Role:     role,
+        }
+
+        queryBuilder := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+
+        query, args, err := queryBuilder.Insert("users").
+                Columns("id", "email", "password", "role").
+                Values(newUser.ID, newUser.Email, newUser.Password, newUser.Role).
+                Suffix("RETURNING id, email, password, role").
+                ToSql()
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Error generating SQL query: %v", err)
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">err = r.DB.QueryRow(context.Background(), query, args...).Scan(&amp;newUser.ID, &amp;newUser.Email, &amp;newUser.Password, &amp;newUser.Role)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Error executing query: %v", err)
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">return newUser, nil</span>
+}
+
+func (r *PostgresRepository) LoginUser(email, password string) (*User, error) <span class="cov8" title="1">{
+        var user User
+
+        queryBuilder := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+
+        query, args, err := queryBuilder.Select("id", "email", "password", "role").
+                From("users").
+                Where(squirrel.Eq{"email": email}).
+                ToSql()
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Error generating SQL query: %v", err)
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">err = r.DB.QueryRow(context.Background(), query, args...).Scan(&amp;user.ID, &amp;user.Email, &amp;user.Password, &amp;user.Role)
+        if err != nil </span><span class="cov8" title="1">{
+                if err == pgx.ErrNoRows </span><span class="cov8" title="1">{
+                        log.Printf("User not found for email: %s", email)
+                        return nil, errors.New("invalid credentials")
+                }</span>
+                <span class="cov0" title="0">log.Printf("Error executing query: %v", err)
+                return nil, err</span>
+        }
+
+        <span class="cov8" title="1">err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+        if err != nil </span><span class="cov8" title="1">{
+                log.Printf("Password comparison failed for email: %s", email)
+                return nil, errors.New("invalid credentials")
+        }</span>
+
+        <span class="cov8" title="1">log.Printf("Login successful for email: %s", email)
+        return &amp;user, nil</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

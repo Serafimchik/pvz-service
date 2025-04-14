@@ -7,7 +7,7 @@ import (
 
 	"github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx"
+	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -18,7 +18,13 @@ type User struct {
 	Role     string `json:"role"`
 }
 
-func (r *Repository) RegisterUser(email, password, role string) (*User, error) {
+type BcryptHasher struct{}
+
+func (b *BcryptHasher) GenerateFromPassword(password []byte, cost int) ([]byte, error) {
+	return bcrypt.GenerateFromPassword(password, cost)
+}
+
+func (r *PostgresRepository) RegisterUser(email, password, role string) (*User, error) {
 	if role != "employee" && role != "moderator" {
 		return nil, errors.New("invalid role")
 	}
@@ -57,7 +63,7 @@ func (r *Repository) RegisterUser(email, password, role string) (*User, error) {
 	return newUser, nil
 }
 
-func (r *Repository) LoginUser(email, password string) (*User, error) {
+func (r *PostgresRepository) LoginUser(email, password string) (*User, error) {
 	var user User
 
 	queryBuilder := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)

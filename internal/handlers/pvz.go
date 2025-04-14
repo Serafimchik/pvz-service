@@ -9,7 +9,7 @@ import (
 	"pvz-service/internal/repository"
 )
 
-func CreatePVZHandler(repo *repository.Repository) http.HandlerFunc {
+func CreatePVZHandler(repo repository.Repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var pvz repository.PVZ
 		if err := json.NewDecoder(r.Body).Decode(&pvz); err != nil {
@@ -35,9 +35,8 @@ func CreatePVZHandler(repo *repository.Repository) http.HandlerFunc {
 	}
 }
 
-func GetPVZListHandler(repo *repository.Repository) http.HandlerFunc {
+func GetPVZListHandler(repo repository.Repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
 		page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 		if page < 1 {
 			page = 1

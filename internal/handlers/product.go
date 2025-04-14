@@ -9,7 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func AddProductHandler(repo *repository.Repository) http.HandlerFunc {
+func AddProductHandler(repo repository.Repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var requestBody struct {
 			Type  string `json:"type"`
@@ -38,7 +38,7 @@ func AddProductHandler(repo *repository.Repository) http.HandlerFunc {
 	}
 }
 
-func DeleteLastProductHandler(repo *repository.Repository) http.HandlerFunc {
+func DeleteLastProductHandler(repo repository.Repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pvzID := chi.URLParam(r, "pvzId")
 		if pvzID == "" {

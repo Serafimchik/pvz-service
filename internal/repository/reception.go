@@ -8,7 +8,7 @@ import (
 
 	"github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx"
+	"github.com/jackc/pgx/v5"
 )
 
 type Reception struct {
@@ -18,7 +18,7 @@ type Reception struct {
 	Status   string    `json:"status"` // "in_progress" или "close"
 }
 
-func (r *Repository) CreateReception(pvzID string) (*Reception, error) {
+func (r *PostgresRepository) CreateReception(pvzID string) (*Reception, error) {
 	queryBuilder := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
 
 	query, args, err := queryBuilder.Select("id", "status").
@@ -26,7 +26,7 @@ func (r *Repository) CreateReception(pvzID string) (*Reception, error) {
 		Where(squirrel.Eq{"pvz_id": pvzID, "status": "in_progress"}).
 		ToSql()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to generate query for checking open reception: %w", err)
 	}
 
 	var openReception Reception
@@ -48,20 +48,20 @@ func (r *Repository) CreateReception(pvzID string) (*Reception, error) {
 		Suffix("RETURNING id, date_time, pvz_id, status").
 		ToSql()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to generate insert query: %w", err)
 	}
 
 	err = r.DB.QueryRow(context.Background(), query, args...).Scan(
 		&newReception.ID, &newReception.DateTime, &newReception.PVZID, &newReception.Status,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create reception: %w", err)
 	}
 
 	return newReception, nil
 }
 
-func (r *Repository) CloseReception(pvzID string) (*Reception, error) {
+func (r *PostgresRepository) CloseReception(pvzID string) (*Reception, error) {
 	queryBuilder := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
 
 	var reception Reception
@@ -77,7 +77,7 @@ func (r *Repository) CloseReception(pvzID string) (*Reception, error) {
 
 	err = r.DB.QueryRow(context.Background(), query, args...).Scan(&reception.ID, &reception.DateTime, &reception.PVZID, &reception.Status)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if err == pgx.ErrNoRows {
 			return nil, errors.New("no active reception found for this PVZ")
 		}
 		return nil, fmt.Errorf("failed to find active reception: %w", err)
